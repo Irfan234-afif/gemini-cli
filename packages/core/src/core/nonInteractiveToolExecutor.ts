@@ -83,6 +83,7 @@ export async function executeToolCall(
       toolCallRequest.name,
       toolCallRequest.callId,
       toolResult.llmContent,
+      toolCallRequest.args,
     );
 
     return {

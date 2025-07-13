@@ -365,8 +365,14 @@ export class GeminiClient {
         );
         throw error;
       }
+      let cleaned = text.trim();
+      // Remove Markdown-style code fences if present
+      const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+      if (fenceMatch) {
+        cleaned = fenceMatch[1].trim();
+      }
       try {
-        return JSON.parse(text);
+        return JSON.parse(cleaned);
       } catch (parseError) {
         await reportError(
           parseError,

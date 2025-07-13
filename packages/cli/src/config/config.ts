@@ -318,6 +318,7 @@ export async function loadCliConfig(
       version: e.config.version,
     })),
     noBrowser: !!process.env.NO_BROWSER,
+    llmProvider: settings.llmProvider,
   });
 }
 

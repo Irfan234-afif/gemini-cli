@@ -126,8 +126,14 @@ function createFunctionResponsePart(
   callId: string,
   toolName: string,
   output: string,
+  args?: Record<string, unknown> | undefined,
 ): Part {
   return {
+    functionCall: {
+      id: callId,
+      name: toolName,
+      args: args,
+    },
     functionResponse: {
       id: callId,
       name: toolName,
@@ -140,6 +146,7 @@ export function convertToFunctionResponse(
   toolName: string,
   callId: string,
   llmContent: PartListUnion,
+  args?: Record<string, unknown>,
 ): PartListUnion {
   const contentToProcess =
     Array.isArray(llmContent) && llmContent.length === 1
@@ -147,7 +154,7 @@ export function convertToFunctionResponse(
       : llmContent;
 
   if (typeof contentToProcess === 'string') {
-    return createFunctionResponsePart(callId, toolName, contentToProcess);
+    return createFunctionResponsePart(callId, toolName, contentToProcess, args);
   }
 
   if (Array.isArray(contentToProcess)) {
@@ -155,6 +162,7 @@ export function convertToFunctionResponse(
       callId,
       toolName,
       'Tool execution succeeded.',
+      args
     );
     return [functionResponse, ...contentToProcess];
   }
@@ -166,7 +174,7 @@ export function convertToFunctionResponse(
         getResponseTextFromParts(
           contentToProcess.functionResponse.response.content as Part[],
         ) || '';
-      return createFunctionResponsePart(callId, toolName, stringifiedOutput);
+      return createFunctionResponsePart(callId, toolName, stringifiedOutput, args);
     }
     // It's a functionResponse that we should pass through as is.
     return contentToProcess;
@@ -181,12 +189,13 @@ export function convertToFunctionResponse(
       callId,
       toolName,
       `Binary content of type ${mimeType} was processed.`,
+      args
     );
     return [functionResponse, contentToProcess];
   }
 
   if (contentToProcess.text !== undefined) {
-    return createFunctionResponsePart(callId, toolName, contentToProcess.text);
+    return createFunctionResponsePart(callId, toolName, contentToProcess.text, args);
   }
 
   // Default case for other kinds of parts.
@@ -194,6 +203,7 @@ export function convertToFunctionResponse(
     callId,
     toolName,
     'Tool execution succeeded.',
+    args
   );
 }
 
@@ -660,6 +670,7 @@ export class CoreToolScheduler {
               toolName,
               callId,
               toolResult.llmContent,
+              toolCall.request.args,
             );
 
             const successResponse: ToolCallResponseInfo = {

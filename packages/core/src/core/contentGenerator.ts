@@ -11,12 +11,15 @@ import {
   CountTokensParameters,
   EmbedContentResponse,
   EmbedContentParameters,
-  GoogleGenAI,
+  GoogleGenAIOptions,
 } from '@google/genai';
 import { createCodeAssistContentGenerator } from '../code_assist/codeAssist.js';
 import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
 import { Config } from '../config/config.js';
 import { getEffectiveModel } from './modelCheck.js';
+import { OpenAIProvider } from '../providers/openai.js';
+import { GeminiProvider } from '../providers/gemini.js';
+import { Logger, MessageSenderType   } from './logger.js';
 
 /**
  * Interface abstracting the core functionalities for generating content and counting tokens.
@@ -42,19 +45,27 @@ export enum AuthType {
   CLOUD_SHELL = 'cloud-shell',
 }
 
+export enum LLMProviderType {
+  GEMINI = 'gemini',
+  OPENAI = 'openai',
+}
+
 export type ContentGeneratorConfig = {
   model: string;
   apiKey?: string;
   vertexai?: boolean;
   authType?: AuthType | undefined;
+  llmProvider?: LLMProviderType | undefined;
 };
 
 export async function createContentGeneratorConfig(
   model: string | undefined,
   authType: AuthType | undefined,
+  llmProvider: LLMProviderType | undefined,
 ): Promise<ContentGeneratorConfig> {
   const geminiApiKey = process.env.GEMINI_API_KEY || undefined;
   const googleApiKey = process.env.GOOGLE_API_KEY || undefined;
+  const openAIApiKey = process.env.OPENAI_API_KEY || undefined;
   const googleCloudProject = process.env.GOOGLE_CLOUD_PROJECT || undefined;
   const googleCloudLocation = process.env.GOOGLE_CLOUD_LOCATION || undefined;
 
@@ -64,7 +75,13 @@ export async function createContentGeneratorConfig(
   const contentGeneratorConfig: ContentGeneratorConfig = {
     model: effectiveModel,
     authType,
+    llmProvider,
   };
+
+  if (llmProvider === LLMProviderType.OPENAI && openAIApiKey) {
+    contentGeneratorConfig.apiKey = openAIApiKey;
+    return contentGeneratorConfig;
+  }
 
   // If we are using Google auth or we are in Cloud Shell, there is nothing else to validate for now
   if (
@@ -109,6 +126,20 @@ export async function createContentGenerator(
       'User-Agent': `GeminiCLI/${version} (${process.platform}; ${process.arch})`,
     },
   };
+  const logger = new Logger("GeminiCLI");
+  await logger.initialize();
+  await logger.logMessage(MessageSenderType.USER, `Creating contentGenerator with config: ${JSON.stringify(config)}`);
+
+  if (config.llmProvider === LLMProviderType.OPENAI) {
+    if (!config.apiKey) {
+      throw new Error(
+        'Error creating contentGenerator: OPENAI_API_KEY is not set.',
+      );
+    }
+    return new OpenAIProvider(config.apiKey);
+  }
+
+  // Default to Gemini
   if (
     config.authType === AuthType.LOGIN_WITH_GOOGLE ||
     config.authType === AuthType.CLOUD_SHELL
@@ -125,13 +156,7 @@ export async function createContentGenerator(
     config.authType === AuthType.USE_GEMINI ||
     config.authType === AuthType.USE_VERTEX_AI
   ) {
-    const googleGenAI = new GoogleGenAI({
-      apiKey: config.apiKey === '' ? undefined : config.apiKey,
-      vertexai: config.vertexai,
-      httpOptions,
-    });
-
-    return googleGenAI.models;
+    return new GeminiProvider(config.apiKey, config.vertexai, httpOptions as GoogleGenAIOptions);
   }
 
   throw new Error(

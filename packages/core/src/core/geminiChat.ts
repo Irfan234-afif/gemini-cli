@@ -35,6 +35,8 @@ import {
   ApiResponseEvent,
 } from '../telemetry/types.js';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
+import { logTools, writeLog } from '../providers/toolLogger.js';
+import logger from '../providers/logger.server.js';
 
 /**
  * Returns true if the response is valid, false otherwise.
@@ -440,6 +442,8 @@ export class GeminiChat {
     } catch (error) {
       const durationMs = Date.now() - startTime;
       this._logApiError(durationMs, error, prompt_id);
+      logger.error("Error in sendMessageStream", error, 'error.log');
+      // writeLog("Error in sendMessageStream", error);
       this.sendPromise = Promise.resolve();
       throw error;
     }

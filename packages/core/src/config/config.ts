@@ -10,6 +10,7 @@ import {
   AuthType,
   ContentGeneratorConfig,
   createContentGeneratorConfig,
+  LLMProviderType,
 } from '../core/contentGenerator.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import { LSTool } from '../tools/ls.js';
@@ -142,6 +143,7 @@ export interface ConfigParameters {
   listExtensions?: boolean;
   activeExtensions?: ActiveExtension[];
   noBrowser?: boolean;
+  llmProvider?: LLMProviderType;
 }
 
 export class Config {
@@ -184,6 +186,7 @@ export class Config {
   private modelSwitchedDuringSession: boolean = false;
   private readonly listExtensions: boolean;
   private readonly _activeExtensions: ActiveExtension[];
+  private readonly llmProvider: LLMProviderType | undefined;
   flashFallbackHandler?: FlashFallbackHandler;
   private quotaErrorOccurred: boolean = false;
 
@@ -230,6 +233,7 @@ export class Config {
     this.listExtensions = params.listExtensions ?? false;
     this._activeExtensions = params.activeExtensions ?? [];
     this.noBrowser = params.noBrowser ?? false;
+    this.llmProvider = params.llmProvider;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -265,6 +269,7 @@ export class Config {
     this.contentGeneratorConfig = await createContentGeneratorConfig(
       this.model,
       authMethod,
+      this.llmProvider,
     );
 
     this.geminiClient = new GeminiClient(this);
@@ -480,6 +485,10 @@ export class Config {
 
   getNoBrowser(): boolean {
     return this.noBrowser;
+  }
+
+  getLlmProvider(): LLMProviderType | undefined {
+    return this.llmProvider;
   }
 
   async getGitService(): Promise<GitService> {

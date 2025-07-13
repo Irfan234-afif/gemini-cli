@@ -9,7 +9,7 @@ import { Box, Text, useInput } from 'ink';
 import { Colors } from '../colors.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
-import { AuthType } from '@google/gemini-cli-core';
+import { AuthType, LLMProviderType } from '@google/gemini-cli-core';
 import { validateAuthMethod } from '../../config/auth.js';
 
 interface AuthDialogProps {
@@ -47,11 +47,22 @@ export function AuthDialog({
       label: 'Use Gemini API Key',
       value: AuthType.USE_GEMINI,
     },
+    {
+      label: 'Use OpenAI API Key',
+      value: { auth: AuthType.USE_GEMINI, provider: LLMProviderType.OPENAI },
+    },
     { label: 'Vertex AI', value: AuthType.USE_VERTEX_AI },
   ];
 
   const initialAuthIndex = items.findIndex((item) => {
     if (settings.merged.selectedAuthType) {
+      // Prefer matching provider first
+      if (
+        typeof item.value === 'object' &&
+        (item.value as { provider?: LLMProviderType }).provider === settings.merged.llmProvider
+      ) {
+        return true;
+      }
       return item.value === settings.merged.selectedAuthType;
     }
 
@@ -62,12 +73,30 @@ export function AuthDialog({
     return item.value === AuthType.LOGIN_WITH_GOOGLE;
   });
 
-  const handleAuthSelect = (authMethod: AuthType) => {
+  type AuthSelectValue = AuthType | { auth: AuthType; provider?: LLMProviderType };
+
+  const handleAuthSelect = (selected: AuthSelectValue) => {
+    let authMethod: AuthType;
+    let provider: LLMProviderType | undefined;
+
+    if (typeof selected === 'string') {
+      authMethod = selected;
+    } else {
+      authMethod = selected.auth;
+      provider = selected.provider;
+    }
+
     const error = validateAuthMethod(authMethod);
     if (error) {
       setErrorMessage(error);
     } else {
       setErrorMessage(null);
+      if (provider) {
+        settings.setValue(SettingScope.User, 'llmProvider', provider);
+      } else {
+        // If user chose any option without provider, clear previous selection
+        settings.setValue(SettingScope.User, 'llmProvider', undefined as unknown as LLMProviderType);
+      }
       onSelect(authMethod, SettingScope.User);
     }
   };

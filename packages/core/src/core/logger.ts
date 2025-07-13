@@ -9,7 +9,8 @@ import { promises as fs } from 'node:fs';
 import { Content } from '@google/genai';
 import { getProjectTempDir } from '../utils/paths.js';
 
-const LOG_FILE_NAME = 'logs.json';
+const JSON_LOG_FILE_NAME = 'logs.json';
+const PLAIN_LOG_FILE_NAME = 'logs.log';
 
 export enum MessageSenderType {
   USER = 'user',
@@ -25,7 +26,8 @@ export interface LogEntry {
 
 export class Logger {
   private geminiDir: string | undefined;
-  private logFilePath: string | undefined;
+  private logFilePath: string | undefined; // JSON log file
+  private plainLogFilePath: string | undefined; // human-readable .log file
   private sessionId: string | undefined;
   private messageId = 0; // Instance-specific counter for the next messageId
   private initialized = false;
@@ -95,7 +97,8 @@ export class Logger {
     }
 
     this.geminiDir = getProjectTempDir(process.cwd());
-    this.logFilePath = path.join(this.geminiDir, LOG_FILE_NAME);
+    this.logFilePath = path.join(this.geminiDir, JSON_LOG_FILE_NAME);
+    this.plainLogFilePath = path.join(this.geminiDir, PLAIN_LOG_FILE_NAME);
 
     try {
       await fs.mkdir(this.geminiDir, { recursive: true });
@@ -108,6 +111,15 @@ export class Logger {
       this.logs = await this._readLogFile();
       if (!fileExisted && this.logs.length === 0) {
         await fs.writeFile(this.logFilePath, '[]', 'utf-8');
+      }
+
+      // Ensure plain log file exists
+      if (this.plainLogFilePath) {
+        try {
+          await fs.access(this.plainLogFilePath);
+        } catch {
+          await fs.writeFile(this.plainLogFilePath, '', 'utf-8');
+        }
       }
       const sessionLogs = this.logs.filter(
         (entry) => entry.sessionId === this.sessionId,
@@ -187,6 +199,14 @@ export class Logger {
       console.debug('Error writing to log file:', error);
       throw error;
     }
+
+    // // Also append to plain-text .log for easy tailing
+    // try {
+    //   const line = `[${entryToAppend.timestamp}] [${entryToAppend.sessionId} #${entryToAppend.messageId}] ${entryToAppend.type}: ${entryToAppend.message}\n`;
+    //   await fs.appendFile(this.plainLogFilePath, line, 'utf-8');
+    // } catch (err) {
+    //   // Non-critical: do not crash if plain log fails
+    // }
   }
 
   async getPreviousUserMessages(): Promise<string[]> {

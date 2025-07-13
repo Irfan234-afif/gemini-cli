@@ -15,6 +15,7 @@ import {
   BugCommandSettings,
   TelemetrySettings,
   AuthType,
+  LLMProviderType,
 } from '@google/gemini-cli-core';
 import stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/default-light.js';
@@ -53,6 +54,7 @@ export interface AccessibilitySettings {
 export interface Settings {
   theme?: string;
   selectedAuthType?: AuthType;
+  llmProvider?: LLMProviderType;
   sandbox?: boolean | string;
   coreTools?: string[];
   excludeTools?: string[];
