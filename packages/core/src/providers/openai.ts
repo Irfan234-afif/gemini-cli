@@ -37,21 +37,20 @@ type ChatCompletionMessageParam = {
 // Note: We will dynamically import `@dqbd/tiktoken` only when needed inside `countTokens` to avoid compile-time type issues.
 
 function geminiContentToOpenAI(
-  contents: Content[],
+  request: GenerateContentParameters,
 ): ChatCompletionMessageParam[] {
-  const messages: ChatCompletionMessageParam[] = [];
+  const contents: Content[] = Array.isArray(request.contents)
+    ? (request.contents as Content[])
+    : [(request.contents as unknown as Content)];
+
+  const messages: ChatCompletionMessageParam[] = [
+    {
+      role: 'system',
+      content: request.config?.systemInstruction?.toString() ?? '',
+    }
+  ];
   
   for (const [index, content] of contents.entries()) {
-    if (index === 0) {
-      messages.push({
-        role: "system",
-        content: content.parts?.at(0)?.text ?? '',
-      });
-      continue;
-    } else if (index === 1) {
-      // Continue to the next content because openai use only system role for the first message
-      continue;
-    }
     // OpenAI doesn't have a direct equivalent of a "model" role.
     // We'll map "user" to "user" and "model" to "assistant".
     const role = content.role === 'user' ? 'user' : 'assistant';
@@ -201,9 +200,7 @@ export class OpenAIProvider implements ContentGenerator {
     request: GenerateContentParameters,
   ): Promise<GenerateContentResponse> {
     const messages = geminiContentToOpenAI(
-      Array.isArray(request.contents)
-        ? (request.contents as Content[])
-        : [(request.contents as unknown as Content)],
+      request
     );
 
     const toolsForOpenAI = this._mapFunctionDeclarations(request);
@@ -247,9 +244,7 @@ export class OpenAIProvider implements ContentGenerator {
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
     logger.info("contents", request.contents, 'contents.log');
     const messages = geminiContentToOpenAI(
-      Array.isArray(request.contents)
-        ? (request.contents as Content[])
-        : [(request.contents as unknown as Content)],
+      request
     );
 
     logger.info("messages", messages, 'messages.log');
